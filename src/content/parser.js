@@ -31,10 +31,54 @@ class ConversationParser {
    * 提取对话标题
    */
   extractTitle() {
-    // Gemini 特殊处理：使用对话列表中第一个对话的标题
-    if (this.platform === 'gemini') {
-      const conversations = document.querySelectorAll(this.config.selectors.conversationList);
+    // ChatGPT 特殊处理：从侧边栏当前激活的对话中提取标题
+    if (this.platform === 'chatgpt') {
+      // 尝试从 URL 获取当前对话 ID
+      const currentUrl = window.location.pathname;
+      const conversationIdMatch = currentUrl.match(/\/c\/([^\/]+)/);
 
+      if (conversationIdMatch) {
+        const currentConversationId = conversationIdMatch[1];
+
+        // 在侧边栏中查找匹配的对话链接
+        const conversationLinks = document.querySelectorAll(this.config.selectors.conversationList);
+
+        for (const link of conversationLinks) {
+          const href = link.getAttribute('href');
+          if (href && href.includes(currentConversationId)) {
+            const titleElement = link.querySelector(this.config.selectors.conversationItemTitle);
+            if (titleElement) {
+              const title = titleElement.textContent.trim();
+              if (title) {
+                return title;
+              }
+            }
+          }
+        }
+      }
+
+      // 后备方案：使用页面顶部标题
+      const titleElement = document.querySelector(this.config.selectors.title);
+      if (titleElement) {
+        const title = titleElement.textContent.trim();
+        if (title && title !== '未命名对话') {
+          return title;
+        }
+      }
+    }
+    // Gemini 特殊处理：使用页面顶部标题（当前显示的对话）
+    else if (this.platform === 'gemini') {
+      // 优先使用页面顶部标题，因为它会随着对话切换而更新
+      const titleElement = document.querySelector(this.config.selectors.title);
+      if (titleElement) {
+        const title = titleElement.textContent.trim();
+        if (title) {
+          return title;
+        }
+      }
+
+      // 后备方案：使用对话列表中第一个对话的标题
+      const conversations = document.querySelectorAll(this.config.selectors.conversationList);
       if (conversations.length > 0) {
         const firstConv = conversations[0];
         const titleElement = firstConv.querySelector(this.config.selectors.conversationItemTitle);
@@ -42,12 +86,6 @@ class ConversationParser {
           const title = titleElement.textContent.trim();
           return title || '未命名对话';
         }
-      }
-
-      // 后备方案：使用页面顶部标题
-      const titleElement = document.querySelector(this.config.selectors.title);
-      if (titleElement) {
-        return titleElement.textContent.trim() || '未命名对话';
       }
     } else {
       // 其他平台使用默认逻辑
@@ -86,11 +124,12 @@ class ConversationParser {
           });
         }
       } else if (this.platform === 'gemini') {
+        // Gemini: Conversations are buttons on the same page
         if (titleElement) {
           conversations.push({
             id: index,
             title: titleElement.textContent.trim(),
-            url: window.location.href
+            element: link // Store the button element for clicking
           });
         }
       }

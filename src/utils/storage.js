@@ -148,9 +148,7 @@ class StorageManager {
     return prefs || {
       autoUpload: false,
       fileNamingPattern: 'platform-date-title',
-      notificationEnabled: true,
-      saveToSubfolder: false,
-      subfolderName: 'EchoSave'
+      notificationEnabled: true
     };
   }
 

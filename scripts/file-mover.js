@@ -93,19 +93,16 @@ function moveFile(filePath) {
 
       const targetPath = path.join(platformDir, fileName);
 
-      // 如果目标文件已存在，添加时间戳
-      let finalTargetPath = targetPath;
+      // 如果目标文件已存在，直接覆盖
       if (fs.existsSync(targetPath)) {
-        const ext = path.extname(fileName);
-        const base = path.basename(fileName, ext);
-        const timestamp = Date.now();
-        finalTargetPath = path.join(platformDir, `${base}-${timestamp}${ext}`);
+        fs.unlinkSync(targetPath);
+        console.log(chalk.yellow('⚠️  覆盖已存在的文件:'), fileName);
       }
 
       // 移动文件
-      fs.renameSync(filePath, finalTargetPath);
+      fs.renameSync(filePath, targetPath);
       console.log(chalk.green('✅ 已移动:'), chalk.white(fileName));
-      console.log(chalk.gray('   目标:'), finalTargetPath);
+      console.log(chalk.gray('   目标:'), targetPath);
 
     } catch (error) {
       console.error(chalk.red('❌ 移动失败:'), fileName);

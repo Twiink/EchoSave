@@ -34,9 +34,9 @@ const PLATFORM_CONFIGS = {
       container: 'message-content',
       userMsg: 'user-query',
       assistantMsg: 'model-response',
-      title: 'h1.title',
-      conversationList: 'div.conversation',
-      conversationItemTitle: 'div.conversation-title',
+      title: '[role="heading"]',
+      conversationList: '[data-test-id="conversation"]',
+      conversationItemTitle: '.conversation-title',
       codeBlock: 'code-block pre',
       messageContent: '.message-content'
     },

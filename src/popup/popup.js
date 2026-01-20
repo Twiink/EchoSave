@@ -123,8 +123,6 @@ async function loadSettings() {
     document.getElementById('setting-notifications').checked = preferences.notificationEnabled;
     document.getElementById('setting-auto-upload').checked = preferences.autoUpload;
     document.getElementById('setting-naming-pattern').value = preferences.fileNamingPattern;
-    document.getElementById('setting-save-to-subfolder').checked = preferences.saveToSubfolder || false;
-    document.getElementById('setting-subfolder-name').value = preferences.subfolderName || 'EchoSave';
 
   } catch (error) {
     console.error('加载设置失败:', error);
@@ -207,10 +205,13 @@ async function loadConversations() {
         return;
       }
 
-      conversationsList.innerHTML = conversations.map(conv => `
+      conversationsList.innerHTML = conversations.map((conv, index) => `
         <div class="conversation-item">
+          <label class="checkbox-label">
+            <input type="checkbox" class="conversation-checkbox" data-url="${conv.url || ''}" data-title="${conv.title}" data-index="${index}">
+          </label>
           <div class="conversation-title">${conv.title}</div>
-          <button class="btn btn-sm btn-icon export-conversation-btn" data-url="${conv.url}" data-title="${conv.title}">
+          <button class="btn btn-sm btn-icon export-conversation-btn" data-url="${conv.url || ''}" data-title="${conv.title}" data-index="${index}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
               <polyline points="7 10 12 15 17 10"></polyline>
@@ -225,15 +226,36 @@ async function loadConversations() {
         btn.addEventListener('click', async (e) => {
           const url = e.currentTarget.getAttribute('data-url');
           const title = e.currentTarget.getAttribute('data-title');
+          const index = e.currentTarget.getAttribute('data-index');
 
-          chrome.tabs.sendMessage(tab.id, {
-            action: 'exportConversation',
-            conversationUrl: url,
-            conversationTitle: title
+          // 获取当前平台
+          const statusResponse = await new Promise(resolve => {
+            chrome.tabs.sendMessage(tab.id, { action: 'getStatus' }, resolve);
           });
+
+          if (statusResponse?.platform === 'gemini') {
+            // Gemini: 点击对话按钮并导出
+            chrome.tabs.sendMessage(tab.id, {
+              action: 'exportGeminiConversation',
+              index: parseInt(index)
+            });
+          } else {
+            // ChatGPT: 使用 URL 导出
+            chrome.tabs.sendMessage(tab.id, {
+              action: 'exportConversation',
+              conversationUrl: url,
+              conversationTitle: title
+            });
+          }
 
           showMessage(`开始导出: ${title}`, 'info');
         });
+      });
+
+      // 绑定复选框事件
+      updateBatchExportButton();
+      document.querySelectorAll('.conversation-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', updateBatchExportButton);
       });
     });
 
@@ -264,20 +286,10 @@ function bindEventListeners() {
   // 保存设置
   document.getElementById('save-settings').addEventListener('click', async () => {
     try {
-      const subfolderName = document.getElementById('setting-subfolder-name').value.trim();
-
-      // 验证子文件夹名称
-      if (document.getElementById('setting-save-to-subfolder').checked && !subfolderName) {
-        showMessage('请输入子文件夹名称', 'error');
-        return;
-      }
-
       const preferences = {
         notificationEnabled: document.getElementById('setting-notifications').checked,
         autoUpload: document.getElementById('setting-auto-upload').checked,
-        fileNamingPattern: document.getElementById('setting-naming-pattern').value,
-        saveToSubfolder: document.getElementById('setting-save-to-subfolder').checked,
-        subfolderName: subfolderName || 'EchoSave'
+        fileNamingPattern: document.getElementById('setting-naming-pattern').value
       };
 
       await StorageManager.savePreferences(preferences);
@@ -334,6 +346,122 @@ function bindEventListeners() {
     await loadConversations();
     showMessage('对话列表已刷新', 'success');
   });
+
+  // 全选/取消全选
+  document.getElementById('select-all-conversations').addEventListener('change', (e) => {
+    const checkboxes = document.querySelectorAll('.conversation-checkbox');
+    checkboxes.forEach(checkbox => {
+      checkbox.checked = e.target.checked;
+    });
+    updateBatchExportButton();
+  });
+
+  // 批量导出
+  document.getElementById('batch-export-btn').addEventListener('click', async () => {
+    const selectedCheckboxes = document.querySelectorAll('.conversation-checkbox:checked');
+    if (selectedCheckboxes.length === 0) {
+      showMessage('请先选择要导出的对话', 'error');
+      return;
+    }
+
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const total = selectedCheckboxes.length;
+
+    // 获取当前平台
+    const statusResponse = await new Promise(resolve => {
+      chrome.tabs.sendMessage(tab.id, { action: 'getStatus' }, resolve);
+    });
+    const platform = statusResponse?.platform;
+
+    // 显示进度条
+    const progressContainer = document.getElementById('batch-export-progress');
+    const progressText = document.getElementById('progress-text');
+    const progressPercentage = document.getElementById('progress-percentage');
+    const progressBarFill = document.getElementById('progress-bar-fill');
+
+    progressContainer.style.display = 'block';
+    document.getElementById('batch-export-btn').disabled = true;
+
+    showMessage(`开始批量导出 ${total} 个对话`, 'info');
+
+    if (platform === 'gemini') {
+      // Gemini: 在当前页面点击对话按钮并导出
+      for (let i = 0; i < selectedCheckboxes.length; i++) {
+        const checkbox = selectedCheckboxes[i];
+        const index = parseInt(checkbox.getAttribute('data-index'));
+
+        // 更新进度
+        const current = i + 1;
+        const percentage = Math.round((current / total) * 100);
+        progressText.textContent = `正在导出 ${current}/${total}`;
+        progressPercentage.textContent = `${percentage}%`;
+        progressBarFill.style.width = `${percentage}%`;
+
+        // 在当前页面导出
+        await new Promise(resolve => {
+          chrome.tabs.sendMessage(tab.id, { action: 'exportGeminiConversation', index }, resolve);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 5000));
+      }
+    } else {
+      // ChatGPT: 打开新标签页导出
+      for (let i = 0; i < selectedCheckboxes.length; i++) {
+        const checkbox = selectedCheckboxes[i];
+        const url = checkbox.getAttribute('data-url');
+
+        // 更新进度
+        const current = i + 1;
+        const percentage = Math.round((current / total) * 100);
+        progressText.textContent = `正在导出 ${current}/${total}`;
+        progressPercentage.textContent = `${percentage}%`;
+        progressBarFill.style.width = `${percentage}%`;
+
+        // 打开对话页面
+        const newTab = await chrome.tabs.create({ url: url, active: false });
+
+        // 等待页面加载完成后导出
+        await new Promise(resolve => setTimeout(resolve, 4000));
+
+        // 在新标签页中执行导出
+        chrome.tabs.sendMessage(newTab.id, { action: 'export' }, (response) => {
+          chrome.tabs.remove(newTab.id);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    }
+
+    // 导出完成后取消所有选中的复选框
+    selectedCheckboxes.forEach(checkbox => {
+      checkbox.checked = false;
+    });
+    document.getElementById('select-all-conversations').checked = false;
+    updateBatchExportButton();
+
+    // 隐藏进度条
+    progressContainer.style.display = 'none';
+    progressBarFill.style.width = '0%';
+    document.getElementById('batch-export-btn').disabled = false;
+
+    showMessage('批量导出已完成', 'success');
+
+    // 刷新统计数据和历史记录
+    await loadHistory();
+    await loadStatus();
+  });
+}
+
+/**
+ * 更新批量导出按钮状态
+ */
+function updateBatchExportButton() {
+  const selectedCheckboxes = document.querySelectorAll('.conversation-checkbox:checked');
+  const batchExportBtn = document.getElementById('batch-export-btn');
+  const selectedCount = document.getElementById('selected-count');
+
+  selectedCount.textContent = selectedCheckboxes.length;
+  batchExportBtn.disabled = selectedCheckboxes.length === 0;
 }
 
 /**

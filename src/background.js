@@ -68,7 +68,8 @@ function handleDownload(request, sendResponse) {
     {
       url: url,
       filename: filename,
-      saveAs: false
+      saveAs: false,
+      conflictAction: 'overwrite'
     },
     (downloadId) => {
       if (chrome.runtime.lastError) {
