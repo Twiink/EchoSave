@@ -1,80 +1,98 @@
 /**
- * 阿里云 OSS 上传模块
- * 注意：浏览器环境中使用 OSS 需要配置 CORS 和 STS 临时凭证
+ * 阿里云 OSS 上传模块 - 使用 PostObject 接口
  */
 
 class OSSUploader {
   constructor(config) {
     this.config = config;
-    this.client = null;
   }
 
   /**
-   * 初始化 OSS 客户端
-   * 注意：这里需要引入阿里云 OSS Browser SDK
-   * 由于浏览器环境的安全限制，建议使用 STS 临时凭证
+   * 生成 Policy 和 Signature
    */
-  async init() {
-    if (!this.config.accessKeyId || !this.config.accessKeySecret) {
-      throw new Error('OSS 配置不完整');
-    }
+  generateSignature(filename) {
+    const expireTime = new Date().getTime() + 3600000; // 1小时后过期
+    const expireDate = new Date(expireTime).toISOString();
+    const objectKey = `${this.config.path || 'AIConversations/'}${filename}`;
 
-    // 这里需要实际的 OSS SDK 初始化
-    // 由于 Manifest V3 不支持远程脚本，需要将 SDK 打包到插件中
-    console.warn('OSS 客户端初始化 - 功能开发中');
+    const policyText = {
+      expiration: expireDate,
+      conditions: [
+        { bucket: this.config.bucket },
+        ['eq', '$key', objectKey],
+        ['content-length-range', 0, 10485760] // 最大10MB
+      ]
+    };
 
-    // 示例代码（需要实际的 SDK）:
-    /*
-    this.client = new OSS({
-      region: this.config.region,
-      accessKeyId: this.config.accessKeyId,
-      accessKeySecret: this.config.accessKeySecret,
-      bucket: this.config.bucket
+    const policyBase64 = btoa(JSON.stringify(policyText));
+    const signature = this.computeSignature(policyBase64, this.config.accessKeySecret);
+
+    return {
+      policy: policyBase64,
+      signature: signature,
+      objectKey: objectKey
+    };
+  }
+
+  /**
+   * 计算 HMAC-SHA1 签名
+   */
+  computeSignature(policyBase64, accessKeySecret) {
+    // 使用 Web Crypto API 计算 HMAC-SHA1
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(accessKeySecret);
+    const messageData = encoder.encode(policyBase64);
+
+    return crypto.subtle.importKey(
+      'raw',
+      keyData,
+      { name: 'HMAC', hash: 'SHA-1' },
+      false,
+      ['sign']
+    ).then(key => {
+      return crypto.subtle.sign('HMAC', key, messageData);
+    }).then(signature => {
+      const signatureArray = Array.from(new Uint8Array(signature));
+      return btoa(String.fromCharCode.apply(null, signatureArray));
     });
-    */
   }
 
   /**
    * 上传文件到 OSS
-   * @param {string} filename - 文件名
-   * @param {string} content - 文件内容
-   * @param {function} onProgress - 进度回调
-   * @returns {Promise<object>} 上传结果
    */
-  async upload(filename, content, onProgress) {
-    if (!this.client) {
-      throw new Error('OSS 客户端未初始化');
-    }
-
-    const objectName = `${this.config.path || 'ai-conversations/'}${filename}`;
-
+  async upload(filename, content) {
     try {
-      // 转换内容为 Blob
-      const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+      const signData = this.generateSignature(filename);
+      const signature = await signData.signature;
 
-      // 上传文件（示例代码）
-      /*
-      const result = await this.client.put(objectName, blob, {
-        progress: (p) => {
-          if (onProgress) {
-            onProgress(p * 100);
-          }
-        }
+      const endpoint = `https://${this.config.bucket}.${this.config.region}.aliyuncs.com`;
+
+      const formData = new FormData();
+      formData.append('key', signData.objectKey);
+      formData.append('policy', signData.policy);
+      formData.append('OSSAccessKeyId', this.config.accessKeyId);
+      formData.append('signature', signature);
+      formData.append('success_action_status', '200');
+      formData.append('file', new Blob([content], { type: 'text/markdown;charset=utf-8' }), filename);
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        body: formData
       });
 
-      return {
-        success: true,
-        url: result.url,
-        name: result.name
-      };
-      */
-
-      // 临时返回（实际需要 SDK）
-      return {
-        success: false,
-        error: '浏览器端 OSS 上传功能开发中，请使用独立的 Node.js 脚本上传'
-      };
-
+      if (response.ok) {
+        return {
+          success: true,
+          url: `${endpoint}/${signData.objectKey}`,
+          name: filename
+        };
+      } else {
+        const errorText = await response.text();
+        return {
+          success: false,
+          error: `上传失败: ${response.status} - ${errorText}`
+        };
+      }
     } catch (error) {
       console.error('OSS 上传失败:', error);
       return {
@@ -85,57 +103,7 @@ class OSSUploader {
   }
 
   /**
-   * 生成预签名 URL（用于临时访问）
-   * @param {string} objectName - 对象名称
-   * @param {number} expires - 过期时间（秒）
-   * @returns {Promise<string>}
-   */
-  async generateSignedUrl(objectName, expires = 3600) {
-    if (!this.client) {
-      throw new Error('OSS 客户端未初始化');
-    }
-
-    // 示例代码
-    /*
-    const url = this.client.signatureUrl(objectName, {
-      expires: expires
-    });
-    return url;
-    */
-
-    throw new Error('功能开发中');
-  }
-
-  /**
-   * 检查文件是否存在
-   * @param {string} objectName - 对象名称
-   * @returns {Promise<boolean>}
-   */
-  async exists(objectName) {
-    if (!this.client) {
-      throw new Error('OSS 客户端未初始化');
-    }
-
-    try {
-      // 示例代码
-      /*
-      await this.client.head(objectName);
-      return true;
-      */
-      return false;
-    } catch (error) {
-      if (error.code === 'NoSuchKey') {
-        return false;
-      }
-      throw error;
-    }
-  }
-
-  /**
    * 批量上传文件
-   * @param {Array} files - 文件列表 [{filename, content}, ...]
-   * @param {function} onProgress - 进度回调
-   * @returns {Promise<object>} 上传结果统计
    */
   async batchUpload(files, onProgress) {
     const results = {
@@ -148,16 +116,7 @@ class OSSUploader {
       const file = files[i];
 
       try {
-        const result = await this.upload(
-          file.filename,
-          file.content,
-          (progress) => {
-            if (onProgress) {
-              const overall = ((i + progress / 100) / files.length) * 100;
-              onProgress(overall, i + 1, files.length);
-            }
-          }
-        );
+        const result = await this.upload(file.filename, file.content);
 
         if (result.success) {
           results.success.push({
@@ -169,6 +128,10 @@ class OSSUploader {
             filename: file.filename,
             error: result.error
           });
+        }
+
+        if (onProgress) {
+          onProgress(((i + 1) / files.length) * 100, i + 1, files.length);
         }
       } catch (error) {
         results.failed.push({
@@ -186,23 +149,3 @@ class OSSUploader {
 if (typeof window !== 'undefined') {
   window.OSSUploader = OSSUploader;
 }
-
-/**
- * 使用说明：
- *
- * 1. 由于浏览器环境的安全限制，直接在插件中使用 OSS 需要：
- *    - 在 OSS Bucket 中配置 CORS 规则
- *    - 使用 STS 临时凭证而非永久凭证
- *    - 将 OSS SDK 打包到插件中
- *
- * 2. 推荐方案：
- *    - 方案 A: 使用独立的 Node.js 脚本上传（已提供）
- *    - 方案 B: 搭建后端 API 代理上传
- *    - 方案 C: 使用 OSS PostObject 接口
- *
- * 3. 如需在插件中启用 OSS 上传，需要：
- *    - 下载阿里云 OSS Browser SDK
- *    - 将 SDK 文件放入插件目录
- *    - 在 manifest.json 中声明 SDK 文件
- *    - 实现 STS 临时凭证获取
- */

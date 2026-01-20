@@ -52,6 +52,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       getOSSConfig(sendResponse);
       return true;
 
+    case 'testOSSConnection':
+      testOSSConnection(sendResponse);
+      return true;
+
     default:
       sendResponse({ success: false, error: '未知操作' });
       return false;
@@ -179,6 +183,49 @@ function getOSSConfig(sendResponse) {
       });
     }
   });
+}
+
+/**
+ * 测试 OSS 连接
+ */
+async function testOSSConnection(sendResponse) {
+  try {
+    chrome.storage.local.get(['oss_config'], async (result) => {
+      if (!result.oss_config) {
+        sendResponse({
+          success: false,
+          error: '未配置 OSS 信息'
+        });
+        return;
+      }
+
+      const config = result.oss_config;
+      const endpoint = `https://${config.bucket}.${config.region}.aliyuncs.com`;
+
+      try {
+        // 使用简单的 HEAD 请求测试连接
+        const response = await fetch(endpoint, {
+          method: 'HEAD',
+          mode: 'no-cors'
+        });
+
+        sendResponse({
+          success: true,
+          message: 'OSS 连接测试成功'
+        });
+      } catch (error) {
+        sendResponse({
+          success: false,
+          error: `连接失败: ${error.message}`
+        });
+      }
+    });
+  } catch (error) {
+    sendResponse({
+      success: false,
+      error: error.message
+    });
+  }
 }
 
 /**

@@ -15,5 +15,7 @@
     "markdown",
     "export"
   ],
-  "devDependencies": {}
+  "dependencies": {
+    "ali-oss": "^6.23.0"
+  }
 }

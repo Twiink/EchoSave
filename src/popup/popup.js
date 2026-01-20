@@ -327,8 +327,25 @@ function bindEventListeners() {
   });
 
   // 测试 OSS 连接
-  document.getElementById('test-oss-connection').addEventListener('click', () => {
-    showMessage('测试功能开发中，请使用独立脚本验证配置', 'info');
+  document.getElementById('test-oss-connection').addEventListener('click', async () => {
+    const button = document.getElementById('test-oss-connection');
+    button.disabled = true;
+    button.textContent = '测试中...';
+
+    try {
+      const response = await chrome.runtime.sendMessage({ action: 'testOSSConnection' });
+
+      if (response.success) {
+        showMessage('OSS 连接测试成功', 'success');
+      } else {
+        showMessage(`测试失败: ${response.error}`, 'error');
+      }
+    } catch (error) {
+      showMessage(`测试失败: ${error.message}`, 'error');
+    } finally {
+      button.disabled = false;
+      button.textContent = '测试连接';
+    }
   });
 
   // 清空历史

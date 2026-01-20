@@ -182,6 +182,13 @@ class FileDownloader {
       if (success) {
         // 保存到导出历史
         this.saveToHistory(platform, title, filename);
+
+        // 检查是否启用自动上传
+        if (preferences && preferences.autoUpload) {
+          this.uploadToOSS(filename, content).catch(error => {
+            console.error('自动上传失败:', error);
+          });
+        }
       } else {
         throw new Error('下载失败');
       }
@@ -190,6 +197,39 @@ class FileDownloader {
     } catch (error) {
       console.error('导出失败:', error);
       return false;
+    }
+  }
+
+  /**
+   * 上传文件到 OSS
+   */
+  static async uploadToOSS(filename, content) {
+    try {
+      // 获取 OSS 配置
+      const ossConfig = await new Promise((resolve) => {
+        chrome.storage.local.get(['oss_config'], (result) => {
+          resolve(result.oss_config || null);
+        });
+      });
+
+      if (!ossConfig) {
+        console.warn('OSS 配置未设置，跳过自动上传');
+        return;
+      }
+
+      // 创建上传器并上传
+      const uploader = new OSSUploader(ossConfig);
+      const result = await uploader.upload(filename, content);
+
+      if (result.success) {
+        console.log('OSS 上传成功:', result.url);
+        this.showNotification('✅ 已自动上传到 OSS', 'success');
+      } else {
+        console.error('OSS 上传失败:', result.error);
+        this.showNotification('⚠️ OSS 上传失败', 'error');
+      }
+    } catch (error) {
+      console.error('OSS 上传异常:', error);
     }
   }
 

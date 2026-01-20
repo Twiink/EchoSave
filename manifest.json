@@ -11,7 +11,8 @@
   "host_permissions": [
     "https://chat.openai.com/*",
     "https://chatgpt.com/*",
-    "https://gemini.google.com/*"
+    "https://gemini.google.com/*",
+    "https://*.aliyuncs.com/*"
   ],
   "background": {
     "service_worker": "src/background.js"
@@ -25,6 +26,7 @@
       ],
       "js": [
         "src/utils/constants.js",
+        "src/utils/oss-uploader.js",
         "src/content/parser.js",
         "src/content/downloader.js",
         "src/content/content.js"
