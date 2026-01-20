@@ -1,22 +1,25 @@
 {
-  "name": "echosave-oss-uploader",
+  "name": "echosave-scripts",
   "version": "1.0.0",
-  "description": "EchoSave 独立 OSS 上传脚本",
+  "description": "EchoSave 独立脚本工具集",
   "main": "upload-to-oss.js",
   "scripts": {
     "upload": "node upload-to-oss.js",
-    "test": "node upload-to-oss.js --test"
+    "test": "node upload-to-oss.js --test",
+    "mover": "node file-mover.js"
   },
   "keywords": [
     "oss",
     "aliyun",
-    "upload"
+    "upload",
+    "file-mover"
   ],
   "author": "Your Name",
   "license": "MIT",
   "dependencies": {
     "ali-oss": "^6.18.1",
     "chalk": "^4.1.2",
+    "chokidar": "^3.5.3",
     "ora": "^5.4.1"
   }
 }

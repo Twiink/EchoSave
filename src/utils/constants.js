@@ -10,8 +10,12 @@ const PLATFORM_CONFIGS = {
       userMsg: '[data-message-author-role="user"]',
       // 助手消息
       assistantMsg: '[data-message-author-role="assistant"]',
-      // 对话标题
-      title: 'h1',
+      // 对话标题（页面顶部）
+      title: 'main h1',
+      // 侧边栏对话列表
+      conversationList: 'nav a[href^="/c/"]',
+      // 对话列表项标题
+      conversationItemTitle: 'span[dir="auto"]',
       // 代码块
       codeBlock: 'pre code',
       // 消息内容
@@ -27,15 +31,17 @@ const PLATFORM_CONFIGS = {
     name: 'Gemini',
     urls: ['gemini.google.com'],
     selectors: {
-      container: '.conversation-container message-set',
-      userMsg: 'user-message',
+      container: 'message-content',
+      userMsg: 'user-query',
       assistantMsg: 'model-response',
-      title: '.conversation-title',
+      title: 'h1.title',
+      conversationList: 'div.conversation',
+      conversationItemTitle: 'div.conversation-title',
       codeBlock: 'code-block pre',
       messageContent: '.message-content'
     },
     buttonPosition: {
-      selector: 'header',
+      selector: 'main',
       position: 'afterend'
     }
   }

@@ -18,6 +18,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 加载历史记录
   await loadHistory();
 
+  // 加载对话列表
+  await loadConversations();
+
   // 绑定事件监听器
   bindEventListeners();
 });
@@ -56,23 +59,42 @@ async function loadStatus() {
     // 获取当前标签页
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-    // 发送消息给 content script
-    chrome.tabs.sendMessage(tab.id, { action: 'getStatus' }, (response) => {
-      if (chrome.runtime.lastError) {
-        document.getElementById('current-platform').textContent = '不支持的页面';
-        document.getElementById('plugin-status').innerHTML = '<span class="status-dot inactive"></span>未激活';
-        return;
-      }
+    // 添加重试机制，解决消息传递时序问题
+    let retryCount = 0;
+    const maxRetries = 3;
 
-      if (response && response.platform) {
-        const platformName = PLATFORM_CONFIGS[response.platform].name;
-        document.getElementById('current-platform').textContent = platformName;
-        document.getElementById('plugin-status').innerHTML = '<span class="status-dot active"></span>已激活';
-      } else {
-        document.getElementById('current-platform').textContent = '不支持的页面';
-        document.getElementById('plugin-status').innerHTML = '<span class="status-dot inactive"></span>未激活';
-      }
-    });
+    const checkStatus = () => {
+      chrome.tabs.sendMessage(tab.id, { action: 'getStatus' }, (response) => {
+        if (chrome.runtime.lastError) {
+          // 如果失败且未达到最大重试次数，则重试
+          if (retryCount < maxRetries) {
+            retryCount++;
+            console.log(`EchoSave Popup: 重试获取状态 (${retryCount}/${maxRetries})`);
+            setTimeout(checkStatus, 500); // 延迟500ms后重试
+            return;
+          }
+
+          // 重试失败后才显示未激活
+          console.log('EchoSave Popup: 无法连接到 content script，可能不在支持的页面');
+          document.getElementById('current-platform').textContent = '不支持的页面';
+          document.getElementById('plugin-status').innerHTML = '<span class="status-dot inactive"></span>未激活';
+          return;
+        }
+
+        if (response && response.platform) {
+          const platformName = PLATFORM_CONFIGS[response.platform].name;
+          document.getElementById('current-platform').textContent = platformName;
+          document.getElementById('plugin-status').innerHTML = '<span class="status-dot active"></span>已激活';
+          console.log(`EchoSave Popup: 状态检测成功 - ${platformName}`);
+        } else {
+          document.getElementById('current-platform').textContent = '不支持的页面';
+          document.getElementById('plugin-status').innerHTML = '<span class="status-dot inactive"></span>未激活';
+        }
+      });
+    };
+
+    // 开始检查状态
+    checkStatus();
 
     // 加载统计信息
     const history = await StorageManager.getExportHistory();
@@ -101,6 +123,8 @@ async function loadSettings() {
     document.getElementById('setting-notifications').checked = preferences.notificationEnabled;
     document.getElementById('setting-auto-upload').checked = preferences.autoUpload;
     document.getElementById('setting-naming-pattern').value = preferences.fileNamingPattern;
+    document.getElementById('setting-save-to-subfolder').checked = preferences.saveToSubfolder || false;
+    document.getElementById('setting-subfolder-name').value = preferences.subfolderName || 'EchoSave';
 
   } catch (error) {
     console.error('加载设置失败:', error);
@@ -159,6 +183,66 @@ async function loadHistory() {
 }
 
 /**
+ * 加载对话列表
+ */
+async function loadConversations() {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+    chrome.tabs.sendMessage(tab.id, { action: 'getConversationList' }, (response) => {
+      const conversationsList = document.getElementById('conversations-list');
+      const conversationsCount = document.getElementById('conversations-count');
+
+      if (chrome.runtime.lastError || !response || !response.success) {
+        conversationsList.innerHTML = '<p class="empty-state">无法获取对话列表，请确保在 ChatGPT 页面</p>';
+        conversationsCount.textContent = '0';
+        return;
+      }
+
+      const conversations = response.conversations || [];
+      conversationsCount.textContent = conversations.length;
+
+      if (conversations.length === 0) {
+        conversationsList.innerHTML = '<p class="empty-state">暂无对话</p>';
+        return;
+      }
+
+      conversationsList.innerHTML = conversations.map(conv => `
+        <div class="conversation-item">
+          <div class="conversation-title">${conv.title}</div>
+          <button class="btn btn-sm btn-icon export-conversation-btn" data-url="${conv.url}" data-title="${conv.title}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+          </button>
+        </div>
+      `).join('');
+
+      // 绑定导出按钮事件
+      document.querySelectorAll('.export-conversation-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const url = e.currentTarget.getAttribute('data-url');
+          const title = e.currentTarget.getAttribute('data-title');
+
+          chrome.tabs.sendMessage(tab.id, {
+            action: 'exportConversation',
+            conversationUrl: url,
+            conversationTitle: title
+          });
+
+          showMessage(`开始导出: ${title}`, 'info');
+        });
+      });
+    });
+
+  } catch (error) {
+    console.error('加载对话列表失败:', error);
+  }
+}
+
+/**
  * 绑定事件监听器
  */
 function bindEventListeners() {
@@ -180,10 +264,20 @@ function bindEventListeners() {
   // 保存设置
   document.getElementById('save-settings').addEventListener('click', async () => {
     try {
+      const subfolderName = document.getElementById('setting-subfolder-name').value.trim();
+
+      // 验证子文件夹名称
+      if (document.getElementById('setting-save-to-subfolder').checked && !subfolderName) {
+        showMessage('请输入子文件夹名称', 'error');
+        return;
+      }
+
       const preferences = {
         notificationEnabled: document.getElementById('setting-notifications').checked,
         autoUpload: document.getElementById('setting-auto-upload').checked,
-        fileNamingPattern: document.getElementById('setting-naming-pattern').value
+        fileNamingPattern: document.getElementById('setting-naming-pattern').value,
+        saveToSubfolder: document.getElementById('setting-save-to-subfolder').checked,
+        subfolderName: subfolderName || 'EchoSave'
       };
 
       await StorageManager.savePreferences(preferences);
@@ -233,6 +327,12 @@ function bindEventListeners() {
       await loadStatus();
       showMessage('历史记录已清空', 'success');
     }
+  });
+
+  // 刷新对话列表
+  document.getElementById('refresh-conversations').addEventListener('click', async () => {
+    await loadConversations();
+    showMessage('对话列表已刷新', 'success');
   });
 }
 

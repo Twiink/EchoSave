@@ -24,6 +24,7 @@
     <!-- 标签页 -->
     <nav class="tabs">
       <button class="tab-button active" data-tab="status">状态</button>
+      <button class="tab-button" data-tab="conversations">对话列表</button>
       <button class="tab-button" data-tab="settings">设置</button>
       <button class="tab-button" data-tab="oss">OSS 配置</button>
       <button class="tab-button" data-tab="history">历史</button>
@@ -66,6 +67,22 @@
       </div>
     </div>
 
+    <!-- 对话列表页 -->
+    <div class="tab-content" id="tab-conversations">
+      <div class="conversations-header">
+        <h3>对话列表</h3>
+        <button class="btn btn-sm btn-primary" id="refresh-conversations">刷新</button>
+      </div>
+
+      <div class="conversations-info">
+        <span id="conversations-count">0</span> 个对话
+      </div>
+
+      <div class="conversations-list" id="conversations-list">
+        <p class="empty-state">加载中...</p>
+      </div>
+    </div>
+
     <!-- 设置页 -->
     <div class="tab-content" id="tab-settings">
       <div class="form-group">
@@ -90,6 +107,20 @@
           <option value="date-platform-title">日期-平台-标题</option>
           <option value="title-platform-date">标题-平台-日期</option>
         </select>
+      </div>
+
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="setting-save-to-subfolder">
+          <span>保存到子文件夹</span>
+        </label>
+        <p class="form-hint">在下载目录中创建子文件夹保存文件</p>
+      </div>
+
+      <div class="form-group">
+        <label>子文件夹名称</label>
+        <input type="text" id="setting-subfolder-name" class="form-input" placeholder="例如: EchoSave 或 AI-Conversations">
+        <p class="form-hint">文件将保存到: 下载目录/子文件夹名称/文件.md</p>
       </div>
 
       <button class="btn btn-primary" id="save-settings">保存设置</button>

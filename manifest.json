@@ -29,9 +29,6 @@
         "src/content/downloader.js",
         "src/content/content.js"
       ],
-      "css": [
-        "src/content/content.css"
-      ],
       "run_at": "document_idle"
     }
   ],

@@ -1,0 +1,6 @@
+{
+  "downloadDir": "D:/EdgeDownload",
+  "targetDir": "D:/Code/AIChat",
+  "filePattern": "(chatgpt|claude|gemini|kimi|deepseek)-.+\\.md$",
+  "delayMs": 1000
+}

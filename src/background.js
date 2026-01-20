@@ -68,7 +68,7 @@ function handleDownload(request, sendResponse) {
     {
       url: url,
       filename: filename,
-      saveAs: false // 直接保存到默认下载目录
+      saveAs: false
     },
     (downloadId) => {
       if (chrome.runtime.lastError) {

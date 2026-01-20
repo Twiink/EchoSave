@@ -25,3 +25,6 @@ dist/
 *.tmp
 *.swp
 *~
+
+scripts/node_modules
+scripts/package-lock.json

@@ -23,15 +23,16 @@
 
     console.log(`EchoSave: 检测到平台 - ${currentPlatform}`);
 
+    // 不再注入按钮，只通过弹窗导出
     // 等待页面加载完成后注入按钮
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', injectButton);
-    } else {
-      injectButton();
-    }
+    // if (document.readyState === 'loading') {
+    //   document.addEventListener('DOMContentLoaded', injectButton);
+    // } else {
+    //   injectButton();
+    // }
 
     // 使用 MutationObserver 监听动态内容
-    observePageChanges();
+    // observePageChanges();
   }
 
   /**
@@ -83,11 +84,15 @@
    * 处理导出操作
    */
   async function handleExport(event) {
-    event.preventDefault();
+    if (event) {
+      event.preventDefault();
+    }
 
-    // 禁用按钮防止重复点击
-    exportButton.disabled = true;
-    exportButton.classList.add('echosave-loading');
+    // 如果有按钮，禁用按钮防止重复点击
+    if (exportButton) {
+      exportButton.disabled = true;
+      exportButton.classList.add('echosave-loading');
+    }
 
     try {
       console.log('EchoSave: 开始导出...');
@@ -113,8 +118,34 @@
       FileDownloader.showNotification(`❌ 导出失败: ${error.message}`, 'error');
     } finally {
       // 恢复按钮状态
-      exportButton.disabled = false;
-      exportButton.classList.remove('echosave-loading');
+      if (exportButton) {
+        exportButton.disabled = false;
+        exportButton.classList.remove('echosave-loading');
+      }
+    }
+  }
+
+  /**
+   * 导出指定对话
+   */
+  async function handleExportConversation(url, title) {
+    try {
+      FileDownloader.showNotification(`开始导出: ${title}`, 'info');
+
+      // 在新标签页中打开对话并导出
+      const newTab = window.open(url, '_blank');
+
+      // 等待页面加载后导出
+      setTimeout(async () => {
+        const parser = new ConversationParser(currentPlatform);
+        const markdown = parser.generateMarkdown();
+        await FileDownloader.export(currentPlatform, title, markdown);
+        newTab.close();
+      }, 3000);
+
+    } catch (error) {
+      console.error('EchoSave: 导出对话失败', error);
+      FileDownloader.showNotification(`❌ 导出失败: ${error.message}`, 'error');
     }
   }
 
@@ -146,6 +177,13 @@
         platform: currentPlatform,
         hasButton: exportButton && document.body.contains(exportButton)
       });
+    } else if (request.action === 'getConversationList') {
+      const parser = new ConversationParser(currentPlatform);
+      const conversations = parser.getConversationList();
+      sendResponse({ success: true, conversations });
+    } else if (request.action === 'exportConversation') {
+      handleExportConversation(request.conversationUrl, request.conversationTitle);
+      sendResponse({ success: true });
     }
 
     return true;

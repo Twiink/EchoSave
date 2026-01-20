@@ -15,7 +15,11 @@ class ConversationParser {
     const hostname = window.location.hostname;
 
     for (const [platformKey, config] of Object.entries(PLATFORM_CONFIGS)) {
-      if (config.urls.some(url => hostname.includes(url))) {
+      const isMatch = config.urls.some(url => {
+        return hostname.includes(url) || url.includes(hostname) || hostname === url;
+      });
+
+      if (isMatch) {
         return platformKey;
       }
     }
@@ -27,11 +31,72 @@ class ConversationParser {
    * 提取对话标题
    */
   extractTitle() {
-    const titleElement = document.querySelector(this.config.selectors.title);
-    if (titleElement) {
-      return titleElement.textContent.trim() || '未命名对话';
+    // Gemini 特殊处理：使用对话列表中第一个对话的标题
+    if (this.platform === 'gemini') {
+      const conversations = document.querySelectorAll(this.config.selectors.conversationList);
+
+      if (conversations.length > 0) {
+        const firstConv = conversations[0];
+        const titleElement = firstConv.querySelector(this.config.selectors.conversationItemTitle);
+        if (titleElement) {
+          const title = titleElement.textContent.trim();
+          return title || '未命名对话';
+        }
+      }
+
+      // 后备方案：使用页面顶部标题
+      const titleElement = document.querySelector(this.config.selectors.title);
+      if (titleElement) {
+        return titleElement.textContent.trim() || '未命名对话';
+      }
+    } else {
+      // 其他平台使用默认逻辑
+      const titleElement = document.querySelector(this.config.selectors.title);
+      if (titleElement) {
+        return titleElement.textContent.trim() || '未命名对话';
+      }
     }
+
     return '未命名对话';
+  }
+
+  /**
+   * 获取所有对话列表（仅 ChatGPT）
+   */
+  getConversationList() {
+    if (this.platform !== 'chatgpt' && this.platform !== 'gemini') {
+      return [];
+    }
+
+    const conversations = [];
+    const conversationLinks = document.querySelectorAll(this.config.selectors.conversationList);
+
+    conversationLinks.forEach((link, index) => {
+      const titleElement = link.querySelector(this.config.selectors.conversationItemTitle);
+
+      if (this.platform === 'chatgpt') {
+        const href = link.getAttribute('href');
+        const conversationId = href ? href.split('/c/')[1] : null;
+
+        if (titleElement && conversationId) {
+          conversations.push({
+            id: conversationId,
+            title: titleElement.textContent.trim(),
+            url: `https://chatgpt.com${href}`
+          });
+        }
+      } else if (this.platform === 'gemini') {
+        if (titleElement) {
+          conversations.push({
+            id: index,
+            title: titleElement.textContent.trim(),
+            url: window.location.href
+          });
+        }
+      }
+    });
+
+    return conversations;
   }
 
   /**

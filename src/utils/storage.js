@@ -150,7 +150,7 @@ class StorageManager {
       fileNamingPattern: 'platform-date-title',
       notificationEnabled: true,
       saveToSubfolder: false,
-      subfolder: 'EchoSave'
+      subfolderName: 'EchoSave'
     };
   }
 

@@ -4,12 +4,13 @@
 
 class FileDownloader {
   /**
-   * 生成文件名
+   * 生成文件名（带路径）
    * @param {string} platform - 平台名称
    * @param {string} title - 对话标题
-   * @returns {string} 文件名
+   * @param {object} preferences - 用户偏好设置
+   * @returns {string} 文件名（可能包含子文件夹路径）
    */
-  static generateFilename(platform, title) {
+  static generateFilename(platform, title, preferences = null) {
     // 获取当前日期
     const now = new Date();
     const year = now.getFullYear();
@@ -37,7 +38,16 @@ class FileDownloader {
       cleanTitle = 'untitled';
     }
 
-    return `${platform.toLowerCase()}-${dateStr}-${cleanTitle}.md`;
+    // 基础文件名
+    const filename = `${platform.toLowerCase()}-${dateStr}-${cleanTitle}.md`;
+
+    // 如果启用了子文件夹，添加路径前缀
+    if (preferences && preferences.saveToSubfolder && preferences.subfolderName) {
+      const subfolder = preferences.subfolderName.replace(FILE_CONFIG.illegalChars, FILE_CONFIG.replacementChar).trim();
+      return `${subfolder}/${filename}`;
+    }
+
+    return filename;
   }
 
   /**
@@ -142,7 +152,17 @@ class FileDownloader {
    */
   static async export(platform, title, content) {
     try {
-      const filename = this.generateFilename(platform, title);
+      // 获取用户偏好设置
+      let preferences = null;
+      if (typeof chrome !== 'undefined' && chrome.storage) {
+        preferences = await new Promise((resolve) => {
+          chrome.storage.local.get([STORAGE_KEYS.userPreferences], (result) => {
+            resolve(result[STORAGE_KEYS.userPreferences] || null);
+          });
+        });
+      }
+
+      const filename = this.generateFilename(platform, title, preferences);
 
       // 优先尝试使用 Chrome API
       let success = false;
@@ -160,7 +180,9 @@ class FileDownloader {
       }
 
       if (success) {
-        this.showNotification(`✅ 导出成功: ${filename}`, 'success');
+        // 显示文件名（不含路径）
+        const displayName = filename.split('/').pop();
+        this.showNotification(`✅ 导出成功: ${displayName}`, 'success');
 
         // 保存到导出历史
         this.saveToHistory(platform, title, filename);
