@@ -1,10 +1,10 @@
 {
-  "accessKeyId": "your-access-key-id",
-  "accessKeySecret": "your-access-key-secret",
+  "accessKeyId": "YOUR_ACCESS_KEY_ID",
+  "accessKeySecret": "YOUR_ACCESS_KEY_SECRET",
   "bucket": "your-bucket-name",
   "region": "oss-cn-hangzhou",
-  "localDir": "../downloads",
-  "ossPath": "ai-conversations/",
+  "localDir": "D:/Code/AIChat",
+  "ossPath": "AIConversations/",
   "options": {
     "overwrite": false,
     "skipExisting": true,
