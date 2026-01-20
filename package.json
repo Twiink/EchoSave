@@ -1,0 +1,19 @@
+{
+  "name": "echosave",
+  "version": "1.0.0",
+  "description": "AI 对话导出插件 - 支持 ChatGPT 和 Gemini 导出为 Markdown",
+  "author": "Your Name",
+  "license": "MIT",
+  "scripts": {
+    "build": "echo 'Building extension...'",
+    "pack": "zip -r echosave.zip manifest.json icons/ src/ -x '*.map' '*.DS_Store'"
+  },
+  "keywords": [
+    "chrome-extension",
+    "chatgpt",
+    "gemini",
+    "markdown",
+    "export"
+  ],
+  "devDependencies": {}
+}

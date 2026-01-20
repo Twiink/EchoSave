@@ -1,0 +1,150 @@
+/**
+ * EchoSave 样式表
+ */
+
+/* 导出按钮 */
+.echosave-export-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  margin: 10px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+  z-index: 9999;
+  position: relative;
+}
+
+.echosave-export-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.echosave-export-button:active {
+  transform: translateY(0);
+}
+
+.echosave-export-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 按钮图标 */
+.echosave-icon {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2.5;
+}
+
+/* 加载状态 */
+.echosave-loading {
+  position: relative;
+  pointer-events: none;
+}
+
+.echosave-loading::after {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  top: 50%;
+  left: 50%;
+  margin-left: -8px;
+  margin-top: -8px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: echosave-spin 0.8s linear infinite;
+}
+
+@keyframes echosave-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 通知组件 */
+.echosave-notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 16px 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 10000;
+  opacity: 0;
+  transform: translateX(400px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  max-width: 350px;
+  word-wrap: break-word;
+}
+
+.echosave-notification-show {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.echosave-notification-success {
+  border-left: 4px solid #10b981;
+  color: #065f46;
+}
+
+.echosave-notification-error {
+  border-left: 4px solid #ef4444;
+  color: #991b1b;
+}
+
+/* 适配深色模式 */
+@media (prefers-color-scheme: dark) {
+  .echosave-notification {
+    background: #1f2937;
+  }
+
+  .echosave-notification-success {
+    color: #6ee7b7;
+  }
+
+  .echosave-notification-error {
+    color: #fca5a5;
+  }
+}
+
+/* ChatGPT 特定样式调整 */
+body[data-theme="dark"] .echosave-export-button {
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.5);
+}
+
+/* Gemini 特定样式调整 */
+.gemini-chat .echosave-export-button {
+  margin: 8px 12px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .echosave-export-button {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .echosave-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  .echosave-notification {
+    top: 10px;
+    right: 10px;
+    left: 10px;
+    max-width: none;
+  }
+}

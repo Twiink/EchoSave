@@ -1,0 +1,13 @@
+{
+  "accessKeyId": "your-access-key-id",
+  "accessKeySecret": "your-access-key-secret",
+  "bucket": "your-bucket-name",
+  "region": "oss-cn-hangzhou",
+  "localDir": "../downloads",
+  "ossPath": "ai-conversations/",
+  "options": {
+    "overwrite": false,
+    "skipExisting": true,
+    "showProgress": true
+  }
+}

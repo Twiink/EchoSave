@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EchoSave - 设置</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <!-- 头部 -->
+    <header class="header">
+      <h1>
+        <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        EchoSave
+      </h1>
+      <p class="subtitle">AI 对话导出助手</p>
+    </header>
+
+    <!-- 标签页 -->
+    <nav class="tabs">
+      <button class="tab-button active" data-tab="status">状态</button>
+      <button class="tab-button" data-tab="settings">设置</button>
+      <button class="tab-button" data-tab="oss">OSS 配置</button>
+      <button class="tab-button" data-tab="history">历史</button>
+    </nav>
+
+    <!-- 状态页 -->
+    <div class="tab-content active" id="tab-status">
+      <div class="status-card">
+        <div class="status-item">
+          <span class="label">当前平台:</span>
+          <span class="value" id="current-platform">检测中...</span>
+        </div>
+        <div class="status-item">
+          <span class="label">插件状态:</span>
+          <span class="value status-badge" id="plugin-status">
+            <span class="status-dot"></span>
+            就绪
+          </span>
+        </div>
+      </div>
+
+      <button class="btn btn-primary btn-block" id="export-now">
+        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        立即导出当前对话
+      </button>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value" id="total-exports">0</div>
+          <div class="stat-label">总导出次数</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="today-exports">0</div>
+          <div class="stat-label">今日导出</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 设置页 -->
+    <div class="tab-content" id="tab-settings">
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="setting-notifications">
+          <span>显示导出通知</span>
+        </label>
+      </div>
+
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="setting-auto-upload">
+          <span>自动上传到 OSS</span>
+        </label>
+        <p class="form-hint">需要先配置 OSS 信息</p>
+      </div>
+
+      <div class="form-group">
+        <label>文件命名模式</label>
+        <select id="setting-naming-pattern" class="form-select">
+          <option value="platform-date-title">平台-日期-标题</option>
+          <option value="date-platform-title">日期-平台-标题</option>
+          <option value="title-platform-date">标题-平台-日期</option>
+        </select>
+      </div>
+
+      <button class="btn btn-primary" id="save-settings">保存设置</button>
+    </div>
+
+    <!-- OSS 配置页 -->
+    <div class="tab-content" id="tab-oss">
+      <div class="form-group">
+        <label>Access Key ID</label>
+        <input type="text" id="oss-key-id" class="form-input" placeholder="输入 Access Key ID">
+      </div>
+
+      <div class="form-group">
+        <label>Access Key Secret</label>
+        <input type="password" id="oss-key-secret" class="form-input" placeholder="输入 Access Key Secret">
+      </div>
+
+      <div class="form-group">
+        <label>Bucket 名称</label>
+        <input type="text" id="oss-bucket" class="form-input" placeholder="例如: my-bucket">
+      </div>
+
+      <div class="form-group">
+        <label>Region 区域</label>
+        <select id="oss-region" class="form-select">
+          <option value="oss-cn-hangzhou">华东1（杭州）</option>
+          <option value="oss-cn-shanghai">华东2（上海）</option>
+          <option value="oss-cn-beijing">华北2（北京）</option>
+          <option value="oss-cn-shenzhen">华南1（深圳）</option>
+          <option value="oss-cn-guangzhou">华南2（广州）</option>
+          <option value="oss-cn-chengdu">西南1（成都）</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>存储路径</label>
+        <input type="text" id="oss-path" class="form-input" placeholder="ai-conversations/" value="ai-conversations/">
+        <p class="form-hint">文件在 OSS 中的保存路径</p>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn btn-primary" id="save-oss-config">保存配置</button>
+        <button class="btn btn-secondary" id="test-oss-connection">测试连接</button>
+      </div>
+
+      <div class="alert alert-info">
+        <strong>提示:</strong> 浏览器端上传需要配置 OSS CORS 规则。推荐使用独立的 Node.js 脚本批量上传（见项目 scripts 目录）。
+      </div>
+    </div>
+
+    <!-- 历史记录页 -->
+    <div class="tab-content" id="tab-history">
+      <div class="history-header">
+        <h3>导出历史</h3>
+        <button class="btn btn-sm btn-secondary" id="clear-history">清空</button>
+      </div>
+
+      <div class="history-list" id="history-list">
+        <p class="empty-state">暂无导出记录</p>
+      </div>
+    </div>
+
+    <!-- 页脚 -->
+    <footer class="footer">
+      <p>版本 1.0.0 | <a href="https://github.com/yourusername/echosave" target="_blank">GitHub</a></p>
+    </footer>
+  </div>
+
+  <script src="../utils/constants.js"></script>
+  <script src="../utils/storage.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
