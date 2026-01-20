@@ -65,6 +65,64 @@
   }
 
   /**
+   * 滚动到第一条消息并等待内容加载
+   */
+  async function scrollAndWaitForContent() {
+    const config = PLATFORM_CONFIGS[currentPlatform];
+
+    let previousTotalCount = 0;
+    let scrollAttempts = 0;
+    const maxScrollAttempts = 15;
+
+    // 持续滚动直到消息数量不再增加
+    while (scrollAttempts < maxScrollAttempts) {
+      scrollAttempts++;
+
+      // 滚动到顶部
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // 查找第一条用户消息并滚动
+      const firstUserMsg = document.querySelector(config.selectors.userMsg);
+      if (firstUserMsg) {
+        firstUserMsg.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        await new Promise(resolve => setTimeout(resolve, 1500));
+      }
+
+      // 等待内容稳定
+      let stableCount = 0;
+      let lastCount = 0;
+
+      for (let i = 0; i < 6; i++) {
+        const currentCount = document.querySelectorAll(`${config.selectors.userMsg}, ${config.selectors.assistantMsg}`).length;
+
+        if (currentCount === lastCount) {
+          stableCount++;
+          if (stableCount >= 3) break;
+        } else {
+          stableCount = 0;
+        }
+
+        lastCount = currentCount;
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+
+      const currentTotalCount = lastCount;
+
+      // 如果消息数量不再增加，说明已经到顶部
+      if (currentTotalCount === previousTotalCount) {
+        break;
+      }
+
+      previousTotalCount = currentTotalCount;
+    }
+
+    // 最后一次滚动到绝对顶部
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  }
+
+  /**
    * 处理导出操作
    */
   async function handleExport(event) {
@@ -80,7 +138,8 @@
     }
 
     try {
-      console.log('EchoSave: 开始导出...');
+      // 滚动并等待内容加载
+      await scrollAndWaitForContent();
 
       // 创建解析器
       const parser = new ConversationParser(currentPlatform);
@@ -93,10 +152,12 @@
         throw new Error('未找到有效的对话内容');
       }
 
-      console.log(`EchoSave: Markdown 生成成功，长度: ${markdown.length} 字符`);
-
       // 执行下载
-      await FileDownloader.export(currentPlatform, title, markdown);
+      const success = await FileDownloader.export(currentPlatform, title, markdown);
+
+      if (success) {
+        FileDownloader.showNotification('✅ 导出成功', 'success');
+      }
 
     } catch (error) {
       console.error('EchoSave: 导出失败', error);
@@ -114,16 +175,18 @@
    */
   async function handleExportConversation(url, title) {
     try {
-      FileDownloader.showNotification(`开始导出: ${title}`, 'info');
-
       // 在新标签页中打开对话并导出
       const newTab = window.open(url, '_blank');
 
       // 等待页面加载后导出
       setTimeout(async () => {
+        await scrollAndWaitForContent();
         const parser = new ConversationParser(currentPlatform);
         const markdown = parser.generateMarkdown();
-        await FileDownloader.export(currentPlatform, title, markdown);
+        const success = await FileDownloader.export(currentPlatform, title, markdown);
+        if (success) {
+          FileDownloader.showNotification(`✅ 导出成功: ${title}`, 'success');
+        }
         newTab.close();
       }, 3000);
 
@@ -154,8 +217,12 @@
   // 监听来自 popup 的消息
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'export') {
-      handleExport(new Event('click'));
-      sendResponse({ success: true });
+      handleExport(new Event('click')).then(() => {
+        sendResponse({ success: true });
+      }).catch((error) => {
+        sendResponse({ success: false, error: error.message });
+      });
+      return true; // 保持消息通道打开
     } else if (request.action === 'getStatus') {
       sendResponse({
         platform: currentPlatform,
@@ -177,12 +244,14 @@
         const conversationTitle = titleElement ? titleElement.textContent.trim() : '未命名对话';
 
         button.click();
-        setTimeout(() => {
-          // 创建解析器并导出，使用从对话列表获取的标题
+        setTimeout(async () => {
+          await scrollAndWaitForContent();
           const parser = new ConversationParser(currentPlatform);
           const markdown = parser.generateMarkdown();
-
-          FileDownloader.export(currentPlatform, conversationTitle, markdown);
+          const success = await FileDownloader.export(currentPlatform, conversationTitle, markdown);
+          if (success) {
+            FileDownloader.showNotification(`✅ 导出成功: ${conversationTitle}`, 'success');
+          }
           sendResponse({ success: true });
         }, 4000);
       } else {

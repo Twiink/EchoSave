@@ -180,10 +180,6 @@ class FileDownloader {
       }
 
       if (success) {
-        // 显示文件名（不含路径）
-        const displayName = filename.split('/').pop();
-        this.showNotification(`✅ 导出成功: ${displayName}`, 'success');
-
         // 保存到导出历史
         this.saveToHistory(platform, title, filename);
       } else {
@@ -193,7 +189,6 @@ class FileDownloader {
       return success;
     } catch (error) {
       console.error('导出失败:', error);
-      this.showNotification(`❌ 导出失败: ${error.message}`, 'error');
       return false;
     }
   }

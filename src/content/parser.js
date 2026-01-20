@@ -66,19 +66,29 @@ class ConversationParser {
         }
       }
     }
-    // Gemini 特殊处理：使用页面顶部标题（当前显示的对话）
+    // Gemini 特殊处理：从左侧聊天列表获取当前激活对话的标题
     else if (this.platform === 'gemini') {
-      // 优先使用页面顶部标题，因为它会随着对话切换而更新
-      const titleElement = document.querySelector(this.config.selectors.title);
-      if (titleElement) {
-        const title = titleElement.textContent.trim();
-        if (title) {
-          return title;
+      // 查找所有对话项
+      const conversations = document.querySelectorAll(this.config.selectors.conversationList);
+
+      // 通过背景色识别当前激活的对话（激活的对话有浅蓝色背景）
+      for (const conv of conversations) {
+        const computedStyle = window.getComputedStyle(conv);
+        const bgColor = computedStyle.backgroundColor;
+
+        // 检查背景色是否不是透明（当前激活的对话有颜色背景）
+        if (bgColor && bgColor !== 'rgba(0, 0, 0, 0)' && bgColor !== 'transparent') {
+          const titleElement = conv.querySelector(this.config.selectors.conversationItemTitle);
+          if (titleElement) {
+            const title = titleElement.textContent.trim();
+            if (title) {
+              return title;
+            }
+          }
         }
       }
 
       // 后备方案：使用对话列表中第一个对话的标题
-      const conversations = document.querySelectorAll(this.config.selectors.conversationList);
       if (conversations.length > 0) {
         const firstConv = conversations[0];
         const titleElement = firstConv.querySelector(this.config.selectors.conversationItemTitle);
@@ -327,48 +337,42 @@ class ConversationParser {
   generateMarkdown() {
     const title = this.extractTitle();
     const messages = this.extractMessages();
-    const timestamp = new Date().toLocaleString('zh-CN', {
-      timeZone: 'Asia/Shanghai',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    });
+    const now = new Date();
+    const date = now.toISOString().split('T')[0];
+    const chatId = now.toISOString().replace(/[-:]/g, '').split('.')[0].substring(0, 15);
 
-    // 统计信息
-    const messageCount = messages.length;
-    const codeBlockCount = messages.reduce((count, msg) => {
-      return count + (msg.content.match(/```/g) || []).length / 2;
-    }, 0);
+    // 生成 YAML front matter
+    let markdown = `---\n`;
+    markdown += `title: ${title}\n`;
+    markdown += `date: ${date}\n`;
+    markdown += `chat_id: ${chatId}\n`;
+    markdown += `source: ${this.platform}\n`;
+    markdown += `model: ${this.config.name}\n`;
+    markdown += `type: chat-log\n`;
+    markdown += `tags: []\n`;
+    markdown += `---\n\n`;
 
-    // 生成 Markdown 头部
-    let markdown = `# ${title}\n\n`;
-    markdown += `> 平台: ${this.config.name}\n`;
-    markdown += `> 导出时间: ${timestamp}\n`;
-    markdown += `> 消息数: ${messageCount}\n\n`;
-    markdown += `${EXPORT_CONFIG.metadataSeparator}\n\n`;
+    // 主标题
+    markdown += `# 聊天记录\n\n`;
 
-    // 生成对话内容
+    // 元信息部分
+    markdown += `## 元信息\n`;
+    markdown += `- 开始时间：${date}\n`;
+    markdown += `- 主题：${title}\n`;
+    markdown += `- 参与者：用户 / ${this.config.name}\n\n`;
+    markdown += `---\n\n`;
+
+    // 对话正文
+    markdown += `## 对话正文\n\n`;
+
     messages.forEach((message, index) => {
       const icon = message.role === 'user' ? EXPORT_CONFIG.userIcon : EXPORT_CONFIG.assistantIcon;
-      const roleName = message.role === 'user' ? 'User' : 'Assistant';
+      const roleName = message.role === 'user' ? '用户' : this.config.name;
 
-      markdown += `## ${icon} ${roleName}\n\n`;
+      markdown += `### ${icon} ${roleName}\n`;
       markdown += `${message.content}\n\n`;
-
-      if (index < messages.length - 1) {
-        markdown += `${EXPORT_CONFIG.metadataSeparator}\n\n`;
-      }
+      markdown += `---\n\n`;
     });
-
-    // 添加元数据
-    markdown += `\n## 📊 元数据\n\n`;
-    markdown += `- 总消息数: ${messageCount}\n`;
-    markdown += `- 代码块数: ${Math.floor(codeBlockCount)}\n`;
-    markdown += `- 用户消息: ${messages.filter(m => m.role === 'user').length}\n`;
-    markdown += `- 助手消息: ${messages.filter(m => m.role === 'assistant').length}\n`;
 
     return markdown;
   }

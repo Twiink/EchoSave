@@ -61,7 +61,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 /**
  * 处理文件下载
  */
-function handleDownload(request, sendResponse) {
+async function handleDownload(request, sendResponse) {
   const { url, filename } = request;
 
   chrome.downloads.download(
@@ -71,20 +71,43 @@ function handleDownload(request, sendResponse) {
       saveAs: false,
       conflictAction: 'overwrite'
     },
-    (downloadId) => {
+    async (downloadId) => {
       if (chrome.runtime.lastError) {
         console.error('下载失败:', chrome.runtime.lastError);
         sendResponse({
           success: false,
           error: chrome.runtime.lastError.message
         });
-      } else {
-        console.log('下载成功, ID:', downloadId);
-        sendResponse({
-          success: true,
-          downloadId: downloadId
-        });
+        return;
       }
+
+      // 轮询检查下载状态
+      const checkDownloadStatus = async () => {
+        return new Promise((resolve) => {
+          const interval = setInterval(() => {
+            chrome.downloads.search({ id: downloadId }, (results) => {
+              if (results.length === 0) {
+                clearInterval(interval);
+                resolve({ success: false, error: '下载任务未找到' });
+                return;
+              }
+
+              const download = results[0];
+
+              if (download.state === 'complete') {
+                clearInterval(interval);
+                resolve({ success: true, downloadId: downloadId });
+              } else if (download.state === 'interrupted') {
+                clearInterval(interval);
+                resolve({ success: false, error: '下载被中断' });
+              }
+            });
+          }, 100);
+        });
+      };
+
+      const result = await checkDownloadStatus();
+      sendResponse(result);
     }
   );
 }
