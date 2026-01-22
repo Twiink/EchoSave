@@ -90,12 +90,11 @@ class StorageManager {
   }
 
   /**
-   * 保存 OSS 配置（带加密）
+   * 保存 OSS 配置（使用 Base64 编码）
    * @param {object} config - OSS 配置
    * @returns {Promise<boolean>}
    */
   static async saveOSSConfig(config) {
-    // 简单的 Base64 加密（生产环境应使用更安全的加密方法）
     const encrypted = {
       accessKeyId: btoa(config.accessKeyId || ''),
       accessKeySecret: btoa(config.accessKeySecret || ''),
@@ -108,7 +107,7 @@ class StorageManager {
   }
 
   /**
-   * 获取 OSS 配置（带解密）
+   * 获取 OSS 配置并解密
    * @returns {Promise<object|null>}
    */
   static async getOSSConfig() {
@@ -118,7 +117,6 @@ class StorageManager {
       return null;
     }
 
-    // 解密
     return {
       accessKeyId: atob(encrypted.accessKeyId || ''),
       accessKeySecret: atob(encrypted.accessKeySecret || ''),
@@ -144,7 +142,6 @@ class StorageManager {
   static async getPreferences() {
     const prefs = await this.get(STORAGE_KEYS.userPreferences);
 
-    // 返回默认值
     return prefs || {
       autoUpload: false,
       fileNamingPattern: 'platform-date-title',
@@ -153,7 +150,7 @@ class StorageManager {
   }
 
   /**
-   * 添加导出历史记录
+   * 添加导出历史记录（最多保留100条）
    * @param {object} record - 导出记录
    * @returns {Promise<boolean>}
    */
@@ -165,7 +162,6 @@ class StorageManager {
       timestamp: new Date().toISOString()
     });
 
-    // 只保留最近 100 条
     const trimmed = history.slice(0, 100);
 
     return this.set(STORAGE_KEYS.exportHistory, trimmed);
@@ -188,7 +184,6 @@ class StorageManager {
   }
 }
 
-// 导出到全局
 if (typeof window !== 'undefined') {
   window.StorageManager = StorageManager;
 }
